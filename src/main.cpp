@@ -13,6 +13,7 @@ float MaxTemp;
 float MinTemp;
 float CenterTemp;
 
+// create task and queue handlers
 TaskHandle_t getFrameTask;
 TaskHandle_t serverTask;
 TaskHandle_t updateImageTask;
