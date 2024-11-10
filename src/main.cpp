@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include "MLX90640_API.h"
 #include "MLX90640_I2C_Driver.h"
+#include "driver/gpio.h"
 
 const byte MLX90640_address = 0x33;
 #define TA_SHIFT 8
@@ -14,8 +15,10 @@ float MaxTemp;
 float MinTemp;
 float CenterTemp;
 
-TaskHandle_t getFrameArray;
-TaskHandle_t Task1;
+TaskHandle_t getFrameTask;
+TaskHandle_t serverTask;
+TaskHandle_t updateImageTask;
+QueueHandle_t queue;
 
 boolean isConnected(){
   Wire.beginTransmission((uint8_t)MLX90640_address);
@@ -24,8 +27,10 @@ boolean isConnected(){
   return (true);
 }
 
-void getFrameArraycode(void* pvParameters){
-	for(;;){
+void getFrameTaskcode(void* pvParameters){
+  float mlxTx[768];
+  queue = xQueueCreate(5, sizeof(mlxTx));
+  for(;;){
     for (byte x = 0; x < 2; x++){
       uint16_t mlx90640Frame[834];
       int status = MLX90640_GetFrameData(MLX90640_address, mlx90640Frame);
@@ -34,66 +39,62 @@ void getFrameArraycode(void* pvParameters){
       float tr = Ta - TA_SHIFT;
       float emissivity = 0.95;
       MLX90640_CalculateTo(mlx90640Frame, &mlx90640, emissivity, tr, mlx90640To);
-      
-      CenterTemp = (mlx90640To[367]+mlx90640To[368]+mlx90640To[399]+mlx90640To[400]) / 4.0;
-      MaxTemp = mlx90640To[0];
-      MinTemp = mlx90640To[0];
-  		
-      for (int x = 0; x < 768; x++){
-        if (mlx90640To[x] > MaxTemp){
-          MaxTemp = mlx90640To[x];
-        }
-        if (mlx90640To[x] < MinTemp){
-          MinTemp = mlx90640To[x];
-        }
-  		
-      }
-  	}
-    Serial.print("Min: ");
-    Serial.print(MinTemp);
-    Serial.print(" C, ");
-    Serial.print("Max: ");
-    Serial.print(MaxTemp);
-    Serial.print(" C, ");
-    Serial.print("Center: ");
-    Serial.print(CenterTemp);
-    Serial.println(" C");
+    }
+    if (queue == 0){
+      Serial.print("Failed to create queue:");
+    }
+    memcpy(mlxTx, mlx90640To, sizeof(mlx90640To));
+    xQueueSend(queue, (void*)mlxTx, (TickType_t)0);
   }
 }
 
-
-	/*
-  Serial.print("getFrameArray running on core ");
-	Serial.println(xPortGetCoreID());
-	
+void serverTaskcode(void* pvParameters) {
+  float mlxRx[768];
   for (;;) {
-    Serial.println("Core 0 processing");
-    delay((int)random(100, 1000));
+    if(xQueueReceive(queue, &(mlxRx), (TickType_t)5)){
+      CenterTemp = (mlxRx[367]+mlxRx[368]+mlxRx[399]+mlxRx[400]) / 4.0;
+      MaxTemp = mlxRx[0];
+      MinTemp = mlxRx[0];
+      for (int x = 0; x < 768; x++){
+        if (mlxRx[x] > MaxTemp){
+          MaxTemp = mlxRx[x];
+        }
+        if (mlxRx[x] < MinTemp){
+          MinTemp = mlxRx[x];
+        }
+      }
+      Serial.print("Min: ");
+      Serial.print(MinTemp);
+      Serial.print(" C, ");
+      Serial.print("Max: ");
+      Serial.print(MaxTemp);
+      Serial.print(" C, ");
+      Serial.print("Center: ");
+      Serial.print(CenterTemp);
+      Serial.println(" C");
+    }else{
+      Serial.println("no queue");
+    }
   }
-	*/
+}
 
-
-void Task1code(void* pvParameters) {
-  Serial.print("Task1 running on core ");
-  Serial.println(xPortGetCoreID());
-
+void updateImageTaskcode(void* pvParameters) {
   for (;;) {
-    Serial.println("Core 1 processing");
+    Serial.println("image task core");
     delay((int)random(100, 1000));
   }
 }
 
 void setup() {
-	Wire.begin();
+  Serial.begin(115200);
+  
+  Wire.begin();
 	Wire.setClock(400000);
-
-	Serial.begin(115200);
-
+  
 	if (isConnected() == false){
 		Serial.println("MLX90640 not at 0x33");
 		while (1);
 	}
-
 	int status;
 	uint16_t eeMLX90640[832];
 	status = MLX90640_DumpEE(MLX90640_address, eeMLX90640);
@@ -104,14 +105,16 @@ void setup() {
 		Serial.println("Parameter extract failed");
 	MLX90640_SetRefreshRate(MLX90640_address, 0x06);
 	Wire.setClock(8000000);
-  //create a task that executes the getTask0code() function, with priority 1 and executed on core 0
-  xTaskCreatePinnedToCore(getFrameArraycode, "getFrameArray", 10000, NULL, 1, &getFrameArray, 0);
-  //create a task that executes the getTask1code() function, with priority 1 and executed on core 1
-  xTaskCreatePinnedToCore(Task1code, "Task1", 10000, NULL, 1, &Task1, 1);
+  
+  xTaskCreatePinnedToCore(getFrameTaskcode, "get frames from MLX90640", 10000, NULL, 1, &getFrameTask, 0);
+  
+  xTaskCreatePinnedToCore(serverTaskcode, "run the server", 10000, NULL, 1, &serverTask, 1);
+  
+  xTaskCreatePinnedToCore(updateImageTaskcode, "update image", 10000, NULL, 1, &updateImageTask, 1);
 }
 
 void loop() {
-  // nothing to do here, everything happens in the Task1Code and Task2Code functions
+  // nothing to do here, everything happens in the serverTaskCode and Task2Code functions
 }
 
 
