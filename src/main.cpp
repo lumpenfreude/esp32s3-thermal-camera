@@ -48,7 +48,7 @@ void getFrameTaskcode(void* pvParameters){
   }
 }
 
-void serverTaskcode(void* pvParameters) {
+void updateImageTaskcode(void* pvParameters) {
   float mlxRx[768];
   for (;;) {
     if(xQueueReceive(queue, &(mlxRx), (TickType_t)5)){
@@ -73,14 +73,14 @@ void serverTaskcode(void* pvParameters) {
       Serial.print(CenterTemp);
       Serial.println(" C");
     }else{
-      Serial.println("no queue");
+      Serial.print(".");
     }
   }
 }
 
-void updateImageTaskcode(void* pvParameters) {
+void serverTaskcode(void* pvParameters) {
   for (;;) {
-    Serial.println("image task core");
+    Serial.println("the server is 'running'");
     delay((int)random(100, 1000));
   }
 }
