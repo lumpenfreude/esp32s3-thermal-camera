@@ -1,9 +1,7 @@
 #include <Arduino.h>
-#include <stdio.h>
 #include <Wire.h>
 #include "MLX90640_API.h"
 #include "MLX90640_I2C_Driver.h"
-#include "driver/gpio.h"
 
 const byte MLX90640_address = 0x33;
 #define TA_SHIFT 8
@@ -28,9 +26,9 @@ boolean isConnected(){
 }
 
 void getFrameTaskcode(void* pvParameters){
-  float mlxTx[768];
-  queue = xQueueCreate(5, sizeof(mlxTx));
-  for(;;){
+  float mlxTx[768]; // create float for queue data
+  queue = xQueueCreate(5, sizeof(mlxTx)); // create queue
+  for(;;){ // endless loop 
     for (byte x = 0; x < 2; x++){
       uint16_t mlx90640Frame[834];
       int status = MLX90640_GetFrameData(MLX90640_address, mlx90640Frame);
@@ -43,14 +41,18 @@ void getFrameTaskcode(void* pvParameters){
     if (queue == 0){
       Serial.print("Failed to create queue:");
     }
-    memcpy(mlxTx, mlx90640To, sizeof(mlx90640To));
-    xQueueSend(queue, (void*)mlxTx, (TickType_t)0);
+    memcpy(mlxTx, mlx90640To, sizeof(mlx90640To)); // copy mlx90640 data to
+                                                   // queue variable
+    xQueueSend(queue, (void*)mlxTx, (TickType_t)0); // send queue data 
   }
 }
 
 void updateImageTaskcode(void* pvParameters) {
-  float mlxRx[768];
-  for (;;) {
+  float mlxRx[768]; // create float for queue data to be receieved
+  for (;;) { // endless loop
+    // basically, if data is received from the queue, core1 will take a look
+    // at it and grab the minimum, maximum, and center temperatures and print
+    // them to serial. if no data is received, it prints a period. 
     if(xQueueReceive(queue, &(mlxRx), (TickType_t)5)){
       CenterTemp = (mlxRx[367]+mlxRx[368]+mlxRx[399]+mlxRx[400]) / 4.0;
       MaxTemp = mlxRx[0];
@@ -79,6 +81,7 @@ void updateImageTaskcode(void* pvParameters) {
 }
 
 void serverTaskcode(void* pvParameters) {
+  // placeholder for when i add webserver stuff
   for (;;) {
     Serial.println("the server is 'running'");
     delay((int)random(100, 1000));
@@ -106,6 +109,10 @@ void setup() {
 	MLX90640_SetRefreshRate(MLX90640_address, 0x06);
 	Wire.setClock(8000000);
   
+  // create tasks here. i could probably speed this up if i knew exactly what
+  // all the variables meant. especially the 10000 one, as that is "words" or
+  // something. i'll look into it eventually, but for now i just want this
+  // working.
   xTaskCreatePinnedToCore(getFrameTaskcode, "get frames from MLX90640", 10000, NULL, 1, &getFrameTask, 0);
   
   xTaskCreatePinnedToCore(serverTaskcode, "run the server", 10000, NULL, 1, &serverTask, 1);
@@ -114,7 +121,7 @@ void setup() {
 }
 
 void loop() {
-  // nothing to do here, everything happens in the serverTaskCode and Task2Code functions
+  // loop is empty because everything happens in the pinned tasks 
 }
 
 
