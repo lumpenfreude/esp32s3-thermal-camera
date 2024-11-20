@@ -1,7 +1,8 @@
 # multicore ESP32S3 thermal camera using MLX90640 
 trying a thing here with FreeRTOS multi-core processing and the MLX90640
 thermal camera sensor module thinger to see if i can eke more than 8 frames per
-second out of it. extremely work in progress, not even a camera yet. 
+second out of it. extremely work in progress, it's a camera, but it's not much
+of one!
 
 ## thermal camera code largely adapted from: 
 
