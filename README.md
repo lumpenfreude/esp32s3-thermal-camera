@@ -9,7 +9,7 @@ of one!
 - https://github.com/embedded-kiddie/Arduino-XIAO-ESP32/tree/main/MLX90640
 - https://github.com/Samox1/ESP_Thermal_Camera_WebServer/blob/master/ESP_ThermalCamera_WebServer/ESP_ThermalCamera_WebServer.ino
 - https://github.com/weinand/thermal-imaging-camera/blob/main/main.cpp#L277
-
+- https://www.instructables.com/Infrared-Thermal-Imaging-Camera-With-MLX90640-and-/
 
 ## this tutorial is was an incredible help for learning the FreeRTOS multitasking stuff: 
 - https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
